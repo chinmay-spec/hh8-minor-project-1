@@ -12,7 +12,7 @@ This project is a demonstration of a logical flaw in web authentication known as
 1.  Install Python.
 2.  Install Flask: `pip install flask`
 3.  Run the app: `python app.py`
-4.  Open your browser and go to `http://127.0.0.1:5000`.
+4.  Open your browser and go to `http://127.0.0.1:5001`.
 
 ## How to Test the Vulnerability
 1.  Click the link on the homepage to log in as a "Guest".
