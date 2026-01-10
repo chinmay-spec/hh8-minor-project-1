@@ -22,3 +22,7 @@ This project is a demonstration of a logical flaw in web authentication known as
 
 ## What I Learned
 I learned that relying solely on client-side input (like URL parameters) for identification is dangerous. Secure applications must use **Server-Side Validation** and Session Management to ensure the user requesting the data is authorized to see it.
+
+ Update
+- Integrated SQLite database (users.db).
+- Added init_db.py to create tables.
