@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+    <h1>Login Required</h1>
+    <p>Please enter your credentials to access the secure portal.</p>
+
+    <form method="post" style="max-width: 300px; margin: 0 auto; text-align: left;">
+        <div style="margin-bottom: 15px;">
+            <label>Username:</label>
+            <input type="text" name="username" style="width: 100%; padding: 8px; margin-top: 5px;">
+        </div>
+        <div style="margin-bottom: 15px;">
+            <label>Password:</label>
+            <input type="password" name="password" style="width: 100%; padding: 8px; margin-top: 5px;">
+        </div>
+        <button type="submit" class="btn">Sign In</button>
+    </form>
+
+    {% if error %}
+        <div class="alert" style="background:#fee2e2; color:#b91c1c; margin-top:15px;">
+            {{ error }}
+        </div>
+    {% endif %}
+{% endblock %}
