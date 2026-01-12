@@ -26,3 +26,8 @@ I learned that relying solely on client-side input (like URL parameters) for ide
  Update
 - Integrated SQLite database (users.db).
 - Added init_db.py to create tables.
+
+ Update: Security Patch
+- Executed SQL Injection attack on Admin account.
+- Patched `app.py` to use Parameterized Queries.
+- Verified the attack no longer works.
