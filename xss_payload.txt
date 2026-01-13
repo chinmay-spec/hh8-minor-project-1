@@ -1,0 +1,9 @@
+XSS Payload Used:
+<script>alert('HACKED')</script>
+
+Also tried HTML Injection:
+<h1>This is big</h1>
+
+How it works:
+The application renders the user input directly into the HTML without 'escaping' special characters.
+The browser sees the <script> tag and executes it as code.
