@@ -31,3 +31,8 @@ I learned that relying solely on client-side input (like URL parameters) for ide
 - Executed SQL Injection attack on Admin account.
 - Patched `app.py` to use Parameterized Queries.
 - Verified the attack no longer works.
+
+ update: Brute Force & Rate Limiting
+- Performed Brute Force attack using Burp Suite Intruder.
+- Implemented Server-Side Validation (Rate Limiting) in `app.py`.
+- Users are now banned for 60 seconds after 3 failed login attempts.
