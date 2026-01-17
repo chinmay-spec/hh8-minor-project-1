@@ -1,12 +1,13 @@
 import sqlite3
 import time
-from flask import Flask, render_template, request, render_template_string, g
+from flask import Flask, render_template, request, render_template_string, g, session, redirect, url_for
 
 app = Flask(__name__)
+app.secret_key = 'super_secret_key_for_signing_cookies' # Required for session management
 DATABASE = 'database.db'
 COMMENTS = []
 
-# 🛡️ RATE LIMITING STORAGE (Server-Side Validation)
+# Rate Limiting Dictionary
 failed_logins = {}
 
 def get_db():
@@ -24,59 +25,74 @@ def close_connection(exception):
 
 @app.route('/', methods=['GET', 'POST'])
 def login():
+    # 🛡️ DEFENSE: If already logged in, check IP before showing dashboard
+    if 'user_id' in session:
+        if session.get('ip') == request.remote_addr:
+            return redirect(url_for('dashboard_route'))
+        else:
+            session.clear() # Invalid IP? Kick them out!
+
     error = None
     ip = request.remote_addr
     current_time = time.time()
 
-    # 1. Check if IP is banned
+    # Rate Limiting Logic (Day 6)
     if ip in failed_logins:
         attempts = failed_logins[ip]['attempts']
         ban_time = failed_logins[ip]['ban_time']
-
         if attempts >= 3:
             if current_time < ban_time:
                 remaining = int(ban_time - current_time)
-                return render_template_string(f"""
-                <div style="text-align:center; margin-top:50px; font-family:sans-serif;">
-                    <h1 style="color:red;">🚫 ACCESS DENIED 🚫</h1>
-                    <p>Too many failed attempts.</p>
-                    <p>Please wait <b>{remaining} seconds</b>.</p>
-                </div>
-                """)
+                return render_template_string(f"<h1 style='color:red; text-align:center;'>🚫 BANNED: Wait {remaining}s</h1>")
             else:
-                # Reset after ban is over
                 failed_logins[ip] = {'attempts': 0, 'ban_time': 0}
 
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
-
+        
         db = get_db()
-        query = "SELECT * FROM users WHERE username = ? AND password = ?"
-        user = db.execute(query, (username, password)).fetchone()
+        # Secure Login (Day 4)
+        user = db.execute("SELECT * FROM users WHERE username = ? AND password = ?", (username, password)).fetchone()
 
         if user:
-            # Success: Reset counter
-            if ip in failed_logins:
-                failed_logins.pop(ip)
-            return dashboard(user)
+            if ip in failed_logins: failed_logins.pop(ip)
+            
+            # ✅ SESSION BINDING: Save User ID AND their IP Address
+            session['user_id'] = user['id']
+            session['username'] = user['username']
+            session['role'] = user['role']
+            session['ip'] = request.remote_addr # <-- The Lock 🔒
+            
+            return redirect(url_for('dashboard_route'))
         else:
-            # Failure: Increment counter
-            if ip not in failed_logins:
-                failed_logins[ip] = {'attempts': 0, 'ban_time': 0}
-
+            if ip not in failed_logins: failed_logins[ip] = {'attempts': 0, 'ban_time': 0}
             failed_logins[ip]['attempts'] += 1
-
             if failed_logins[ip]['attempts'] >= 3:
-                failed_logins[ip]['ban_time'] = current_time + 60 # Ban for 60s
-                error = "⛔ ACCOUNT LOCKED: Too many attempts"
+                failed_logins[ip]['ban_time'] = current_time + 60
+                error = "⛔ ACCOUNT LOCKED"
             else:
-                left = 3 - failed_logins[ip]['attempts']
-                error = f"Invalid Credentials. {left} attempts remaining."
-
+                error = "Invalid Credentials"
+    
     return render_template('login.html', error=error)
 
-def dashboard(user):
+@app.route('/dashboard')
+def dashboard_route():
+    # 🛡️ DEFENSE: Check if user is logged in AND IP matches
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    if session.get('ip') != request.remote_addr:
+        session.clear()
+        return "<h1>⛔ Session Hijacking Detected! IP Address Mismatch.</h1>"
+
+    # Fetch fresh user data
+    db = get_db()
+    user = db.execute("SELECT * FROM users WHERE id = ?", (session['user_id'],)).fetchone()
+    
+    return dashboard_view(user)
+
+def dashboard_view(user):
     if user['role'] == 'admin':
         badge_color = "#ef4444"
         badge_text = "ADMIN ACCESS"
@@ -94,35 +110,28 @@ def dashboard(user):
         <p>Role: {user['role']}</p>
         {secret_display}
         <br>
-        <a href="/feedback" class="btn" style="margin-top:20px;">Go to Public Feedback</a>
-        <a href="/" class="btn" style="background:#64748b; margin-top:20px;">Logout</a>
+        <a href="/logout" class="btn" style="background:#64748b; margin-top:20px;">Logout</a>
     {{% endblock %}}
     """)
 
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('login'))
+
 @app.route('/feedback', methods=['GET', 'POST'])
 def feedback():
+    # ... (Same secure feedback code as Day 5) ...
     if request.method == 'POST':
-        comment = request.form['comment']
-        COMMENTS.append(comment)
-
+        COMMENTS.append(request.form['comment'])
+    
     return render_template_string("""
     {% extends "base.html" %}
     {% block content %}
         <h1>Public Feedback</h1>
-        <p>Leave a comment for the team:</p>
-        <form method="post">
-            <input type="text" name="comment" style="width:100%; padding:10px;" placeholder="Type here...">
-            <button type="submit" class="btn" style="margin-top:10px;">Post Comment</button>
-        </form>
-        <hr>
-        <h3>Recent Comments:</h3>
-        {% for c in comments %}
-            <div class='badge' style='display:block; text-align:left; margin:5px; background:#e2e8f0; color:#1e293b;'>
-                {{ c }} 
-            </div>
-        {% endfor %}
-        <br>
-        <a href="/" class="btn" style="background:#64748b;">Back to Home</a>
+        <form method="post"><input name="comment"><button>Post</button></form>
+        {% for c in comments %}<div>{{ c }}</div>{% endfor %}
+        <a href="/dashboard">Back</a>
     {% endblock %}
     """, comments=COMMENTS)
 
