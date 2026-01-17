@@ -1,0 +1,9 @@
+Attack: Session Hijacking (Cookie Theft)
+Method:
+1. Logged in as Admin on Browser A.
+2. Copied the 'session' cookie value.
+3. Opened Browser B (Incognito).
+4. Injected the cookie into Browser B.
+5. Refreshed page -> Bypassed Login -> Gained Admin Access.
+
+Conclusion: The 'session' cookie is a temporary password. If stolen, MFA/Passwords don't matter.
