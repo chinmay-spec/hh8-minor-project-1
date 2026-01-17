@@ -36,3 +36,8 @@ I learned that relying solely on client-side input (like URL parameters) for ide
 - Performed Brute Force attack using Burp Suite Intruder.
 - Implemented Server-Side Validation (Rate Limiting) in `app.py`.
 - Users are now banned for 60 seconds after 3 failed login attempts.
+ 
+ update: Session Hijacking & Defense
+- Demonstrated cookie theft using Developer Tools.
+- Implemented Session Binding: Sessions are now locked to the user's IP address.
+- If a cookie is stolen and used on a different network, the server rejects it.
