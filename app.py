@@ -3,11 +3,11 @@ import time
 from flask import Flask, render_template, request, render_template_string, g, session, redirect, url_for
 
 app = Flask(__name__)
-app.secret_key = 'super_secret_key_for_signing_cookies' # Required for session management
+app.secret_key = 'super_secret_key_for_signing_cookies' 
 DATABASE = 'database.db'
 COMMENTS = []
 
-# Rate Limiting Dictionary
+# Security: Rate Limiting Storage
 failed_logins = {}
 
 def get_db():
@@ -25,25 +25,26 @@ def close_connection(exception):
 
 @app.route('/', methods=['GET', 'POST'])
 def login():
-    # 🛡️ DEFENSE: If already logged in, check IP before showing dashboard
+    # Security: Session Hijacking Prevention (IP Binding Check)
     if 'user_id' in session:
         if session.get('ip') == request.remote_addr:
             return redirect(url_for('dashboard_route'))
         else:
-            session.clear() # Invalid IP? Kick them out!
+            session.clear() 
 
     error = None
     ip = request.remote_addr
     current_time = time.time()
 
-    # Rate Limiting Logic (Day 6)
+    # Security: Brute Force Protection (Rate Limiting)
     if ip in failed_logins:
         attempts = failed_logins[ip]['attempts']
         ban_time = failed_logins[ip]['ban_time']
         if attempts >= 3:
             if current_time < ban_time:
                 remaining = int(ban_time - current_time)
-                return render_template_string(f"<h1 style='color:red; text-align:center;'>🚫 BANNED: Wait {remaining}s</h1>")
+                # 🛑 THIS IS THE RED SCREEN FOR TEST 3
+                return render_template_string(f"<h1 style='color:red; text-align:center; font-family:sans-serif;'>🚫 ACCESS DENIED: Too many attempts. Wait {remaining}s</h1>")
             else:
                 failed_logins[ip] = {'attempts': 0, 'ban_time': 0}
 
@@ -52,17 +53,16 @@ def login():
         password = request.form['password']
         
         db = get_db()
-        # Secure Login (Day 4)
+        # Security: Parameterized Queries (Prevents SQL Injection for TEST 1)
         user = db.execute("SELECT * FROM users WHERE username = ? AND password = ?", (username, password)).fetchone()
 
         if user:
             if ip in failed_logins: failed_logins.pop(ip)
             
-            # ✅ SESSION BINDING: Save User ID AND their IP Address
             session['user_id'] = user['id']
             session['username'] = user['username']
             session['role'] = user['role']
-            session['ip'] = request.remote_addr # <-- The Lock 🔒
+            session['ip'] = request.remote_addr 
             
             return redirect(url_for('dashboard_route'))
         else:
@@ -70,7 +70,7 @@ def login():
             failed_logins[ip]['attempts'] += 1
             if failed_logins[ip]['attempts'] >= 3:
                 failed_logins[ip]['ban_time'] = current_time + 60
-                error = "⛔ ACCOUNT LOCKED"
+                error = "⛔ ACCOUNT LOCKED: Excessive login attempts."
             else:
                 error = "Invalid Credentials"
     
@@ -78,18 +78,15 @@ def login():
 
 @app.route('/dashboard')
 def dashboard_route():
-    # 🛡️ DEFENSE: Check if user is logged in AND IP matches
     if 'user_id' not in session:
         return redirect(url_for('login'))
     
     if session.get('ip') != request.remote_addr:
         session.clear()
-        return "<h1>⛔ Session Hijacking Detected! IP Address Mismatch.</h1>"
+        return "<h1>⛔ Security Alert: Session Hijacking Attempt Detected.</h1>"
 
-    # Fetch fresh user data
     db = get_db()
     user = db.execute("SELECT * FROM users WHERE id = ?", (session['user_id'],)).fetchone()
-    
     return dashboard_view(user)
 
 def dashboard_view(user):
@@ -110,6 +107,7 @@ def dashboard_view(user):
         <p>Role: {user['role']}</p>
         {secret_display}
         <br>
+        <a href="/feedback" class="btn" style="margin-top:20px;">Public Feedback</a>
         <a href="/logout" class="btn" style="background:#64748b; margin-top:20px;">Logout</a>
     {{% endblock %}}
     """)
@@ -121,17 +119,20 @@ def logout():
 
 @app.route('/feedback', methods=['GET', 'POST'])
 def feedback():
-    # ... (Same secure feedback code as Day 5) ...
     if request.method == 'POST':
         COMMENTS.append(request.form['comment'])
     
+    # Security: Jinja2 Auto-Escaping (Prevents XSS for TEST 2)
     return render_template_string("""
     {% extends "base.html" %}
     {% block content %}
         <h1>Public Feedback</h1>
-        <form method="post"><input name="comment"><button>Post</button></form>
-        {% for c in comments %}<div>{{ c }}</div>{% endfor %}
-        <a href="/dashboard">Back</a>
+        <form method="post"><input name="comment" placeholder="Type here..." style="width:100%; padding:10px;"><button class="btn" style="margin-top:10px;">Post</button></form>
+        <hr>
+        {% for c in comments %}
+            <div class='badge' style='display:block; text-align:left; margin:5px; background:#e2e8f0; color:#1e293b;'>{{ c }}</div>
+        {% endfor %}
+        <br><a href="/dashboard" class="btn" style="background:#64748b;">Back</a>
     {% endblock %}
     """, comments=COMMENTS)
 
